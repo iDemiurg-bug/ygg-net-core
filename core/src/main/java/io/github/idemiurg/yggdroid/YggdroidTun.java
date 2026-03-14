@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * YggdroidTun - единый класс для прямого TUN с Yggdrasil
- * 
+ *
  * Содержит:
- * - VPN сервис (наследник VpnService) 
+ * - VPN сервис (наследник VpnService)
  * - Управление ядром Yggdrasil через рефлексию
  * - Потоки чтения/записи пакетов
  * - Python API через pyjnius
@@ -35,7 +35,7 @@ public class YggdroidTun {
     private static final String TAG = "YggdroidTun";
     private static final String CHANNEL_ID = "yggdroid_tun";
     private static final int NOTIFICATION_ID = 1001;
-    
+
     private static YggdroidTun instance;
     private final Context context;
     private Object yggdrasil; // Экземпляр Yggdrasil из отдельного AAR
@@ -47,7 +47,7 @@ public class YggdroidTun {
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private String configPath;
     private TunCallback callback;
-    
+
     // Кэшированные методы для рефлексии
     private Method startJSONMethod;
     private Method stopMethod;
@@ -61,7 +61,7 @@ public class YggdroidTun {
     private Method addPeerMethod;
     private Method removePeerMethod;
     private Method retryPeersNowMethod;
-    
+
     public interface TunCallback {
         void onStarted();
         void onStopped();
@@ -69,19 +69,19 @@ public class YggdroidTun {
         void onPeerConnected(String peerUri);
         void onPeerDisconnected(String peerUri);
     }
-    
+
     private YggdroidTun(Context context) {
         this.context = context.getApplicationContext();
         this.configPath = new File(context.getFilesDir(), "yggdrasil.conf").getAbsolutePath();
     }
-    
+
     public static synchronized YggdroidTun getInstance(Context context) {
         if (instance == null) {
             instance = new YggdroidTun(context);
         }
         return instance;
     }
-    
+
     /**
      * Устанавливает экземпляр Yggdrasil из отдельного AAR
      * Должен быть вызван до startTun()
@@ -91,16 +91,16 @@ public class YggdroidTun {
         cacheMethods();
         Log.i(TAG, "Yggdrasil instance set and methods cached");
     }
-    
+
     /**
      * Кэшируем методы Yggdrasil для быстрого вызова
      */
     private void cacheMethods() {
         if (yggdrasil == null) return;
-        
+
         try {
             Class<?> clazz = yggdrasil.getClass();
-            
+
             // Пробуем разные варианты имён методов (AddPeer/addPeer и т.д.)
             startJSONMethod = findMethod(clazz, "startJSON", byte[].class);
             stopMethod = findMethod(clazz, "stop");
@@ -111,29 +111,29 @@ public class YggdroidTun {
             sendBufferMethod = findMethod(clazz, "sendBuffer", byte[].class, int.class);
             recvBufferMethod = findMethod(clazz, "recvBuffer", byte[].class);
             generateConfigJSONMethod = findMethod(clazz, "generateConfigJSON");
-            
+
             // Методы управления пирами
             addPeerMethod = findMethod(clazz, "AddPeer", String.class);
             if (addPeerMethod == null) {
                 addPeerMethod = findMethod(clazz, "addPeer", String.class);
             }
-            
+
             removePeerMethod = findMethod(clazz, "RemovePeer", String.class);
             if (removePeerMethod == null) {
                 removePeerMethod = findMethod(clazz, "removePeer", String.class);
             }
-            
+
             retryPeersNowMethod = findMethod(clazz, "RetryPeersNow");
             if (retryPeersNowMethod == null) {
                 retryPeersNowMethod = findMethod(clazz, "retryPeersNow");
             }
-            
+
             Log.i(TAG, "Methods cached successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error caching methods", e);
         }
     }
-    
+
     /**
      * Поиск метода с игнорированием регистра
      */
@@ -150,7 +150,7 @@ public class YggdroidTun {
             }
         }
     }
-    
+
     /**
      * Безопасный вызов метода Yggdrasil через рефлексию
      */
@@ -163,7 +163,7 @@ public class YggdroidTun {
             Log.e(TAG, "Yggdrasil not set");
             return null;
         }
-        
+
         try {
             return method.invoke(yggdrasil, args);
         } catch (Exception e) {
@@ -171,80 +171,80 @@ public class YggdroidTun {
             return null;
         }
     }
-    
+
     public void setCallback(TunCallback callback) {
         this.callback = callback;
     }
-    
+
     // ========== VPN Service ==========
-    
+
     /**
-     * VPN сервис - наследник VpnService (обязательно для Android) 
+     * VPN сервис - наследник VpnService (обязательно для Android)
      */
     public static class YggdroidVpnService extends VpnService {
-        
+
         public static final String ACTION_START = "io.github.idemiurg.yggdroid.START";
         public static final String ACTION_STOP = "io.github.idemiurg.yggdroid.STOP";
         public static final String ACTION_ADD_PEER = "io.github.idemiurg.yggdroid.ADD_PEER";
         public static final String ACTION_REMOVE_PEER = "io.github.idemiurg.yggdroid.REMOVE_PEER";
         public static final String EXTRA_PEER_URI = "peer_uri";
-        
+
         private YggdroidTun core;
-        
+
         @Override
         public void onCreate() {
             super.onCreate();
             core = YggdroidTun.getInstance(this);
             createNotificationChannel();
         }
-        
+
         @Override
         public int onStartCommand(Intent intent, int flags, int startId) {
             if (intent == null) return START_NOT_STICKY;
-            
+
             String action = intent.getAction();
             Log.i(TAG, "Received action: " + action);
-            
+
             if (ACTION_START.equals(action)) {
                 startForeground(NOTIFICATION_ID, createNotification());
                 core.startTunInternal(this);
-                
+
             } else if (ACTION_STOP.equals(action)) {
                 core.stopTunInternal();
                 stopForeground(true);
                 stopSelf();
-                
+
             } else if (ACTION_ADD_PEER.equals(action)) {
                 String peerUri = intent.getStringExtra(EXTRA_PEER_URI);
                 if (peerUri != null) {
                     core.addPeerInternal(peerUri);
                 }
-                
+
             } else if (ACTION_REMOVE_PEER.equals(action)) {
                 String peerUri = intent.getStringExtra(EXTRA_PEER_URI);
                 if (peerUri != null) {
                     core.removePeerInternal(peerUri);
                 }
             }
-            
+
             return START_STICKY;
         }
-        
+
         @Override
         public void onDestroy() {
             core.stopTunInternal();
             super.onDestroy();
         }
-        
+
         @Override
         public void onRevoke() {
-            // Вызывается, когда система отзывает разрешение VPN 
+            // Вызывается, когда система отзывает разрешение VPN
             Log.i(TAG, "VPN permission revoked");
             core.stopTunInternal();
             stopForeground(true);
             stopSelf();
         }
-        
+
         private void createNotificationChannel() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationChannel channel = new NotificationChannel(
@@ -256,7 +256,7 @@ public class YggdroidTun {
                 manager.createNotificationChannel(channel);
             }
         }
-        
+
         private Notification createNotification() {
             return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Yggdroid")
@@ -267,47 +267,48 @@ public class YggdroidTun {
                 .build();
         }
     }
-    
+
     // ========== Внутренние методы TUN ==========
-    
+
     /**
-     * Создание и настройка TUN интерфейса 
+     * Создание и настройка TUN интерфейса
      */
     private void setupTunInterface(VpnService vpnService) throws Exception {
-    VpnService.Builder builder = new vpnService.Builder(); // ИСПРАВЛЕНО!
+        // Правильное создание Builder через экземпляр VpnService
+        VpnService.Builder builder = vpnService.new Builder();
 
-    // Получаем адрес из Yggdrasil
-    String address = (String) callYggdrasilMethod(addressStringMethod);
-    if (address == null || address.isEmpty()) {
-        throw new Exception("No address from Yggdrasil");
+        // Получаем адрес из Yggdrasil
+        String address = (String) callYggdrasilMethod(addressStringMethod);
+        if (address == null || address.isEmpty()) {
+            throw new Exception("No address from Yggdrasil");
+        }
+
+        Log.i(TAG, "Setting up TUN with address: " + address);
+
+        // Настройка TUN интерфейса
+        builder.setSession("Yggdroid")
+               .setMtu(1280) // Рекомендуемый MTU для Yggdrasil
+               .addAddress(address, 7) // IPv6 адрес с префиксом /7
+               .addRoute("200::", 3); // Маршрут для всей сети Yggdrasil
+
+        // На Android 10+ можно настроить metered статус
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            builder.setMetered(false); // Наследуем статус от underlying сети
+        }
+
+        // Создаём TUN интерфейс
+        tunFd = builder.establish();
+        if (tunFd == null) {
+            throw new Exception("Failed to establish TUN interface");
+        }
+
+        // Создаём потоки для чтения/записи
+        tunInput = new FileInputStream(tunFd.getFileDescriptor());
+        tunOutput = new FileOutputStream(tunFd.getFileDescriptor());
+
+        Log.i(TAG, "TUN interface established successfully");
     }
 
-    Log.i(TAG, "Setting up TUN with address: " + address);
-
-    // Настройка TUN интерфейса
-    builder.setSession("Yggdroid")
-           .setMtu(1280)
-           .addAddress(address, 7)
-           .addRoute("200::", 3);
-
-    // На Android 10+ можно настроить metered статус
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        builder.setMetered(false);
-    }
-
-    // Создаём TUN интерфейс
-    tunFd = builder.establish();
-    if (tunFd == null) {
-        throw new Exception("Failed to establish TUN interface");
-    }
-
-    // Создаём потоки для чтения/записи
-    tunInput = new FileInputStream(tunFd.getFileDescriptor());
-    tunOutput = new FileOutputStream(tunFd.getFileDescriptor());
-
-    Log.i(TAG, "TUN interface established successfully");
-}
-    
     /**
      * Запуск потоков для обработки пакетов
      */
@@ -316,7 +317,7 @@ public class YggdroidTun {
         readerThread = new Thread(() -> {
             byte[] buffer = new byte[65535];
             Log.i(TAG, "Reader thread started");
-            
+
             while (isRunning.get() && !Thread.currentThread().isInterrupted()) {
                 try {
                     int read = tunInput.read(buffer);
@@ -333,12 +334,12 @@ public class YggdroidTun {
             }
             Log.i(TAG, "Reader thread stopped");
         }, "Yggdroid-Reader");
-        
+
         // Поток получения из Yggdrasil -> запись в TUN
         writerThread = new Thread(() -> {
             byte[] buffer = new byte[65535];
             Log.i(TAG, "Writer thread started");
-            
+
             while (isRunning.get() && !Thread.currentThread().isInterrupted()) {
                 try {
                     Integer len = (Integer) callYggdrasilMethod(recvBufferMethod, buffer);
@@ -358,11 +359,11 @@ public class YggdroidTun {
             }
             Log.i(TAG, "Writer thread stopped");
         }, "Yggdroid-Writer");
-        
+
         readerThread.start();
         writerThread.start();
     }
-    
+
     /**
      * Внутренний метод запуска TUN
      */
@@ -371,7 +372,7 @@ public class YggdroidTun {
             if (yggdrasil == null) {
                 throw new Exception("Yggdrasil not set. Call setYggdrasil() first");
             }
-            
+
             // Загружаем конфигурацию
             byte[] config = loadConfig();
             if (config == null) {
@@ -379,34 +380,34 @@ public class YggdroidTun {
                 config = (byte[]) callYggdrasilMethod(generateConfigJSONMethod);
                 saveConfig(config);
             }
-            
+
             // Запускаем ядро Yggdrasil
             Log.i(TAG, "Starting Yggdrasil core");
             callYggdrasilMethod(startJSONMethod, config);
-            
+
             // Настраиваем TUN интерфейс
             setupTunInterface(vpnService);
-            
+
             // Запускаем потоки
             isRunning.set(true);
             startPacketThreads();
-            
+
             Log.i(TAG, "Yggdroid TUN started successfully");
             if (callback != null) callback.onStarted();
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Failed to start TUN", e);
             if (callback != null) callback.onError(e.getMessage());
             stopTunInternal();
         }
     }
-    
+
     /**
      * Внутренний метод остановки TUN
      */
     private void stopTunInternal() {
         isRunning.set(false);
-        
+
         // Останавливаем потоки
         try {
             if (readerThread != null) {
@@ -420,14 +421,14 @@ public class YggdroidTun {
         } catch (InterruptedException e) {
             Log.e(TAG, "Interrupted while stopping threads", e);
         }
-        
+
         // Останавливаем ядро Yggdrasil
         try {
             callYggdrasilMethod(stopMethod);
         } catch (Exception e) {
             Log.e(TAG, "Error stopping Yggdrasil", e);
         }
-        
+
         // Закрываем ресурсы
         try {
             if (tunInput != null) tunInput.close();
@@ -436,13 +437,13 @@ public class YggdroidTun {
         } catch (IOException e) {
             Log.e(TAG, "Error closing TUN resources", e);
         }
-        
+
         Log.i(TAG, "Yggdroid TUN stopped");
         if (callback != null) callback.onStopped();
     }
-    
+
     // ========== Управление пирами ==========
-    
+
     /**
      * Добавление пира в рантайме
      */
@@ -452,13 +453,13 @@ public class YggdroidTun {
             addPeerToConfig(peerUri);
             return;
         }
-        
+
         callYggdrasilMethod(addPeerMethod, peerUri);
         Log.i(TAG, "Peer added: " + peerUri);
         addPeerToConfig(peerUri);
         if (callback != null) callback.onPeerConnected(peerUri);
     }
-    
+
     /**
      * Удаление пира
      */
@@ -467,13 +468,13 @@ public class YggdroidTun {
             removePeerFromConfig(peerUri);
             return;
         }
-        
+
         callYggdrasilMethod(removePeerMethod, peerUri);
         Log.i(TAG, "Peer removed: " + peerUri);
         removePeerFromConfig(peerUri);
         if (callback != null) callback.onPeerDisconnected(peerUri);
     }
-    
+
     /**
      * Принудительное переподключение ко всем пирам
      */
@@ -482,50 +483,50 @@ public class YggdroidTun {
         callYggdrasilMethod(retryPeersNowMethod);
         Log.i(TAG, "Retrying peers");
     }
-    
+
     // ========== Управление конфигурацией ==========
-    
+
     private void addPeerToConfig(String peerUri) {
         try {
             byte[] configData = loadConfig();
             if (configData == null) return;
-            
+
             String configStr = new String(configData);
             org.json.JSONObject config = new org.json.JSONObject(configStr);
-            
+
             org.json.JSONArray peers = config.optJSONArray("Peers");
             if (peers == null) {
                 peers = new org.json.JSONArray();
                 config.put("Peers", peers);
             }
-            
+
             // Проверяем, нет ли уже такого пира
             for (int i = 0; i < peers.length(); i++) {
                 if (peers.getString(i).equals(peerUri)) {
                     return;
                 }
             }
-            
+
             peers.put(peerUri);
             saveConfig(config.toString().getBytes());
             Log.i(TAG, "Peer added to config: " + peerUri);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Error adding peer to config", e);
         }
     }
-    
+
     private void removePeerFromConfig(String peerUri) {
         try {
             byte[] configData = loadConfig();
             if (configData == null) return;
-            
+
             String configStr = new String(configData);
             org.json.JSONObject config = new org.json.JSONObject(configStr);
-            
+
             org.json.JSONArray peers = config.optJSONArray("Peers");
             if (peers == null) return;
-            
+
             org.json.JSONArray newPeers = new org.json.JSONArray();
             for (int i = 0; i < peers.length(); i++) {
                 String peer = peers.getString(i);
@@ -533,16 +534,16 @@ public class YggdroidTun {
                     newPeers.put(peer);
                 }
             }
-            
+
             config.put("Peers", newPeers);
             saveConfig(config.toString().getBytes());
             Log.i(TAG, "Peer removed from config: " + peerUri);
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Error removing peer from config", e);
         }
     }
-    
+
     /**
      * Сохранение конфига
      */
@@ -555,14 +556,14 @@ public class YggdroidTun {
             return false;
         }
     }
-    
+
     /**
      * Загрузка конфига
      */
     public byte[] loadConfig() {
         File file = new File(configPath);
         if (!file.exists()) return null;
-        
+
         try (FileInputStream fis = new FileInputStream(configPath)) {
             return fis.readAllBytes();
         } catch (Exception e) {
@@ -570,7 +571,7 @@ public class YggdroidTun {
             return null;
         }
     }
-    
+
     /**
      * Генерация нового конфига (требует Yggdrasil)
      */
@@ -581,9 +582,9 @@ public class YggdroidTun {
         }
         return (byte[]) callYggdrasilMethod(generateConfigJSONMethod);
     }
-    
+
     // ========== Python API ==========
-    
+
     /**
      * Запуск TUN (должен вызываться из Activity)
      */
@@ -592,19 +593,19 @@ public class YggdroidTun {
             Log.e(TAG, "Yggdrasil not set. Call setYggdrasil() first");
             return false;
         }
-        
-        // Проверяем разрешение VPN 
+
+        // Проверяем разрешение VPN
         if (VpnService.prepare(context) != null) {
             Log.e(TAG, "VPN permission not granted");
             return false;
         }
-        
+
         Intent intent = new Intent(context, YggdroidVpnService.class);
         intent.setAction(YggdroidVpnService.ACTION_START);
         context.startService(intent);
         return true;
     }
-    
+
     /**
      * Остановка TUN
      */
@@ -613,7 +614,7 @@ public class YggdroidTun {
         intent.setAction(YggdroidVpnService.ACTION_STOP);
         context.startService(intent);
     }
-    
+
     /**
      * Добавление пира
      */
@@ -623,7 +624,7 @@ public class YggdroidTun {
         intent.putExtra(YggdroidVpnService.EXTRA_PEER_URI, peerUri);
         context.startService(intent);
     }
-    
+
     /**
      * Удаление пира
      */
@@ -633,14 +634,14 @@ public class YggdroidTun {
         intent.putExtra(YggdroidVpnService.EXTRA_PEER_URI, peerUri);
         context.startService(intent);
     }
-    
+
     /**
      * Проверка статуса
      */
     public boolean isRunning() {
         return isRunning.get();
     }
-    
+
     /**
      * Получение IP адреса
      */
@@ -648,7 +649,7 @@ public class YggdroidTun {
         if (yggdrasil == null) return "";
         return (String) callYggdrasilMethod(addressStringMethod);
     }
-    
+
     /**
      * Получение публичного ключа
      */
@@ -656,7 +657,7 @@ public class YggdroidTun {
         if (yggdrasil == null) return "";
         return (String) callYggdrasilMethod(publicKeyStringMethod);
     }
-    
+
     /**
      * Получение подсети
      */
@@ -664,7 +665,7 @@ public class YggdroidTun {
         if (yggdrasil == null) return "";
         return (String) callYggdrasilMethod(subnetStringMethod);
     }
-    
+
     /**
      * Получение списка пиров в JSON
      */
@@ -672,7 +673,7 @@ public class YggdroidTun {
         if (yggdrasil == null) return "[]";
         return (String) callYggdrasilMethod(peersJSONMethod);
     }
-    
+
     /**
      * Версия
      */
@@ -680,4 +681,3 @@ public class YggdroidTun {
         return "1.0.0 (direct TUN)";
     }
 }
-
