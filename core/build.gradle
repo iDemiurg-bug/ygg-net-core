@@ -36,4 +36,9 @@ task copyAar(type: Copy) {
     into '../'
 }
 
-assembleRelease.finalizedBy copyAar
+// Добавляем зависимость после оценки проекта
+afterEvaluate {
+    if (tasks.findByName('assembleRelease')) {
+        assembleRelease.finalizedBy copyAar
+    }
+}
