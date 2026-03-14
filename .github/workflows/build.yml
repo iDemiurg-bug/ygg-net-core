@@ -7,7 +7,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# Добавляем переменную окружения для Node.js 24
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -28,15 +27,32 @@ jobs:
       
       - name: Setup Android SDK
         run: |
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -q commandlinetools-linux-*.zip
-          mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313"
-        env:
-          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+          # Определяем путь к SDK
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+          
+          # Создаём структуру папок
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          
+          # Скачиваем и распаковываем command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-*.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+          
+          # Принимаем лицензии
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1
+          
+          # Устанавливаем необходимые компоненты
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.1" \
+            "ndk;23.2.8568313" > /dev/null
+          
+          # Добавляем пути в GITHUB_ENV для следующих шагов
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
       
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -44,6 +60,7 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean assembleRelease --no-daemon --stacktrace
         env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
       
       - name: Upload AAR artifact
