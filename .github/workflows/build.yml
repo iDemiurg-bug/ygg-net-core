@@ -28,27 +28,36 @@ jobs:
       - name: Setup Android SDK
         run: |
           # Используем существующий ANDROID_HOME (предоставлен GitHub)
+          export ANDROID_HOME=/usr/local/lib/android/sdk
           echo "ANDROID_HOME=$ANDROID_HOME"
 
-          # Убеждаемся, что cmdline-tools есть и обновлены
+          # Создаём структуру папок
+          mkdir -p $ANDROID_HOME/cmdline-tools
+
+          # Скачиваем и устанавливаем command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-*.zip
+
+          # Перемещаем в правильное место
           mkdir -p $ANDROID_HOME/cmdline-tools/latest
+          mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
+          rm -rf cmdline-tools commandlinetools-linux-*.zip
 
-          # Скачиваем и устанавливаем command line tools, если их нет
-          if [ ! -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            unzip -q commandlinetools-linux-*.zip -d $ANDROID_HOME/cmdline-tools
-            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          fi
-
-          # Добавляем sdkmanager в PATH
+          # Добавляем в PATH и экспортируем
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
 
-          # Принимаем лицензии
-          yes | sdkmanager --licenses > /dev/null 2>&1
+          # Обновляем PATH для текущего шага
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
-          # Устанавливаем необходимые компоненты (если их нет)
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null
+          # Проверяем, что sdkmanager доступен
+          which sdkmanager || echo "sdkmanager not found"
+
+          # Принимаем лицензии
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+          # Устанавливаем необходимые компоненты
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null || true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -56,6 +65,7 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean assembleRelease --no-daemon --stacktrace
         env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
 
       - name: Upload AAR artifact
