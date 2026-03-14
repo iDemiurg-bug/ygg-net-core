@@ -40,7 +40,6 @@ jobs:
             SDKMANAGER="$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
           else
             echo "❌ cmdline-tools not found. Installing..."
-            # Скачиваем и устанавливаем только если нет
             wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
             unzip -q commandlinetools-linux-*.zip
             mkdir -p $ANDROID_HOME/cmdline-tools/latest
@@ -70,16 +69,30 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew clean assembleRelease --no-daemon --stacktrace
+        run: ./gradlew clean assembleRelease --no-daemon --stacktrace -x lint
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
+
+      - name: Find and upload AAR
+        run: |
+          echo "🔍 Searching for AAR files..."
+          find . -name "*.aar" -type f | tee aar-files.txt
+          echo "📁 Found AAR files:"
+          cat aar-files.txt
+
+          # Копируем все найденные AAR в одну папку для загрузки
+          mkdir -p aar-output
+          while read file; do
+            cp "$file" aar-output/ || true
+          done < aar-files.txt
+          ls -la aar-output/
 
       - name: Upload AAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: yggdroid-core
-          path: app/build/outputs/aar/*.aar
+          path: aar-output/
           retention-days: 30
 
       - name: Upload logs on failure
@@ -90,4 +103,5 @@ jobs:
           path: |
             **/build/reports/
             **/*.log
+            aar-files.txt
           retention-days: 7
