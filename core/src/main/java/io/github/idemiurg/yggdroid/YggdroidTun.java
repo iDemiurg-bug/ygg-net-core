@@ -274,39 +274,39 @@ public class YggdroidTun {
      * Создание и настройка TUN интерфейса 
      */
     private void setupTunInterface(VpnService vpnService) throws Exception {
-        VpnService.Builder builder = new VpnService.Builder();
-        
-        // Получаем адрес из Yggdrasil
-        String address = (String) callYggdrasilMethod(addressStringMethod);
-        if (address == null || address.isEmpty()) {
-            throw new Exception("No address from Yggdrasil");
-        }
-        
-        Log.i(TAG, "Setting up TUN with address: " + address);
-        
-        // Настройка TUN интерфейса 
-        builder.setSession("Yggdroid")
-               .setMtu(1280) // Рекомендуемый MTU для Yggdrasil
-               .addAddress(address, 7) // IPv6 адрес с префиксом /7
-               .addRoute("200::", 3); // Маршрут для всей сети Yggdrasil
-        
-        // На Android 10+ можно настроить metered статус
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setMetered(false); // Наследуем статус от underlying сети
-        }
-        
-        // Создаём TUN интерфейс 
-        tunFd = builder.establish();
-        if (tunFd == null) {
-            throw new Exception("Failed to establish TUN interface");
-        }
-        
-        // Создаём потоки для чтения/записи
-        tunInput = new FileInputStream(tunFd.getFileDescriptor());
-        tunOutput = new FileOutputStream(tunFd.getFileDescriptor());
-        
-        Log.i(TAG, "TUN interface established successfully");
+    VpnService.Builder builder = new vpnService.Builder(); // ИСПРАВЛЕНО!
+
+    // Получаем адрес из Yggdrasil
+    String address = (String) callYggdrasilMethod(addressStringMethod);
+    if (address == null || address.isEmpty()) {
+        throw new Exception("No address from Yggdrasil");
     }
+
+    Log.i(TAG, "Setting up TUN with address: " + address);
+
+    // Настройка TUN интерфейса
+    builder.setSession("Yggdroid")
+           .setMtu(1280)
+           .addAddress(address, 7)
+           .addRoute("200::", 3);
+
+    // На Android 10+ можно настроить metered статус
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        builder.setMetered(false);
+    }
+
+    // Создаём TUN интерфейс
+    tunFd = builder.establish();
+    if (tunFd == null) {
+        throw new Exception("Failed to establish TUN interface");
+    }
+
+    // Создаём потоки для чтения/записи
+    tunInput = new FileInputStream(tunFd.getFileDescriptor());
+    tunOutput = new FileOutputStream(tunFd.getFileDescriptor());
+
+    Log.i(TAG, "TUN interface established successfully");
+}
     
     /**
      * Запуск потоков для обработки пакетов
