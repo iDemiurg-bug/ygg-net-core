@@ -1,0 +1,39 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'io.github.idemiurg.yggdroid'
+    compileSdk 33
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 33
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core:1.12.0'
+}
+
+// Копируем AAR в корневую папку для удобства
+task copyAar(type: Copy) {
+    from 'build/outputs/aar'
+    include '*.aar'
+    into '../'
+}
+
+assembleRelease.finalizedBy copyAar

@@ -1,100 +1,45 @@
-name: Build Yggdroid AAR
+name: Build Yggdroid TUN Core
 
 on:
   push:
     branches: [ main, master ]
-    tags:
-      - 'v*'
+    paths:
+      - 'core/**'
   workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
-    name: Build AAR
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
+      
       - name: Setup Android SDK
         run: |
-          # Используем существующий ANDROID_HOME
-          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
           echo "ANDROID_HOME=$ANDROID_HOME"
-
-          # Проверяем, где находятся cmdline-tools
-          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
-            echo "✅ Found cmdline-tools at $ANDROID_HOME/cmdline-tools/latest"
-            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          elif [ -d "$ANDROID_HOME/cmdline-tools/bin" ]; then
-            echo "✅ Found cmdline-tools at $ANDROID_HOME/cmdline-tools"
-            SDKMANAGER="$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
-          else
-            echo "❌ cmdline-tools not found. Installing..."
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            unzip -q commandlinetools-linux-*.zip
-            mkdir -p $ANDROID_HOME/cmdline-tools/latest
-            mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
-            rm -rf cmdline-tools commandlinetools-linux-*.zip
-            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          fi
-
-          # Проверяем, что sdkmanager доступен
-          if [ ! -f "$SDKMANAGER" ]; then
-            echo "❌ sdkmanager not found at $SDKMANAGER"
-            exit 1
-          fi
-          echo "✅ sdkmanager found at $SDKMANAGER"
-
-          # Добавляем пути в PATH для следующих шагов
-          echo "$(dirname $SDKMANAGER)" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-
-          # Принимаем лицензии
-          yes | $SDKMANAGER --licenses > /dev/null 2>&1 || true
-
-          # Устанавливаем недостающие компоненты
-          $SDKMANAGER "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null || true
-
-      - name: Grant execute permission for gradlew
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+      
+      - name: Grant execute permission
         run: chmod +x gradlew
-
-      - name: Build with Gradle
-        run: ./gradlew clean assembleRelease --no-daemon --stacktrace -x lint
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
-
-      - name: Find and upload AAR
-        run: |
-          echo "🔍 Searching for AAR files..."
-          find . -name "*.aar" -type f | tee aar-files.txt
-          echo "📁 Found AAR files:"
-          cat aar-files.txt
-
-          # Копируем все найденные AAR в одну папку для загрузки
-          mkdir -p aar-output
-          while read file; do
-            cp "$file" aar-output/ || true
-          done < aar-files.txt
-          ls -la aar-output/
-
-      - name: Upload AAR artifact
+      
+      - name: Build core
+        run: ./gradlew core:assembleRelease --stacktrace
+      
+      - name: Upload AAR
         uses: actions/upload-artifact@v4
         with:
           name: yggdroid-core
-          path: aar-output/
+          path: core/build/outputs/aar/*.aar
           retention-days: 30
-
+      
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -103,5 +48,4 @@ jobs:
           path: |
             **/build/reports/
             **/*.log
-            aar-files.txt
           retention-days: 7
