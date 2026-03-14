@@ -22,7 +22,6 @@ import kotlin.concurrent.thread
 
 
 private const val TAG = "PacketTunnelProvider"
-const val SERVICE_NOTIFICATION_ID = 1000
 
 open class PacketTunnelProvider: VpnService() {
     companion object {
