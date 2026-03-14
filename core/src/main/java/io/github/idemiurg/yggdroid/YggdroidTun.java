@@ -680,4 +680,4 @@ public class YggdroidTun {
         return "1.0.0 (direct TUN)";
     }
 }
-EOF
+
