@@ -1,5 +1,8 @@
 package eu.neilalexander.yggdrasil
 
+import eu.neilalexander.yggdrasil.KEY_DNS_SERVERS
+import eu.neilalexander.yggdrasil.KEY_ENABLE_CHROME_FIX
+import eu.neilalexander.yggdrasil.SERVICE_NOTIFICATION_ID
 import android.content.Intent
 import android.net.VpnService
 import android.net.wifi.WifiManager

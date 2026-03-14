@@ -12,7 +12,6 @@ import androidx.preference.PreferenceManager
 const val PREF_KEY_ENABLED = "enabled"
 const val PREF_KEY_PEERS_NOTE = "peers_note"
 const val MAIN_CHANNEL_ID = "YggdrasilService"
-const val SERVICE_NOTIFICATION_ID = 1000
 
 class GlobalApplication : Application(), YggStateReceiver.StateReceiver {
 
@@ -24,15 +23,12 @@ class GlobalApplication : Application(), YggStateReceiver.StateReceiver {
         super.onCreate()
         config = ConfigurationProxy(applicationContext)
 
-        // Register network callback
         val callback = NetworkStateCallback(this)
         callback.register()
 
-        // Register state receiver
         val receiver = YggStateReceiver(this)
         receiver.register(this)
 
-        // Migrate DNS servers if needed
         migrateDnsServers(this)
     }
 
@@ -76,7 +72,6 @@ fun migrateDnsServers(context: Context) {
 
     val serverString = preferences.getString(KEY_DNS_SERVERS, "")
     if (!serverString.isNullOrEmpty()) {
-        // Replacing old Revertron's servers by new ones
         val newServers = serverString
             .replace("300:6223::53", "308:25:40:bd::")
             .replace("302:7991::53", "308:62:45:62::")

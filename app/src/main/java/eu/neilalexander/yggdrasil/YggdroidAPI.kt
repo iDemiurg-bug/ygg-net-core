@@ -1,5 +1,7 @@
 package io.meshnet.yggdroid
 
+import eu.neilalexander.yggdrasil.KEY_DNS_SERVERS
+import eu.neilalexander.yggdrasil.KEY_ENABLE_CHROME_FIX
 import android.content.Context
 import android.content.Intent
 import eu.neilalexander.yggdrasil.*

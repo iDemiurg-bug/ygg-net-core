@@ -17,12 +17,15 @@ class BootUpReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
             Log.w(TAG, "Wrong action: ${intent.action}")
+            return
         }
+
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
         if (!preferences.getBoolean(PREF_KEY_ENABLED, false)) {
             Log.i(TAG, "Yggdrasil disabled, not starting service")
             return
         }
+
         Log.i(TAG, "Yggdrasil enabled, starting service")
         val serviceIntent = Intent(context, PacketTunnelProvider::class.java)
         serviceIntent.action = PacketTunnelProvider.ACTION_START
@@ -30,9 +33,10 @@ class BootUpReceiver : BroadcastReceiver() {
         val vpnIntent = VpnService.prepare(context)
         if (vpnIntent != null) {
             Log.i(TAG, "Need to ask for VPN permission")
-            val notification = createPermissionMissingNotification(context)
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.notify(444, notification)
+            // Для библиотечной версии просто логируем, без уведомления
+            // val notification = createPermissionMissingNotification(context)
+            // val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // manager.notify(444, notification)
         } else {
             context.startService(serviceIntent)
         }
