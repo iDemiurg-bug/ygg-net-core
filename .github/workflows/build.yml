@@ -27,37 +27,37 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          # Используем существующий ANDROID_HOME (предоставлен GitHub)
+          # Устанавливаем SDK Manager вручную и используем полный путь
           export ANDROID_HOME=/usr/local/lib/android/sdk
           echo "ANDROID_HOME=$ANDROID_HOME"
 
-          # Создаём структуру папок
-          mkdir -p $ANDROID_HOME/cmdline-tools
-
-          # Скачиваем и устанавливаем command line tools
+          # Скачиваем command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-*.zip
 
-          # Перемещаем в правильное место
+          # Создаём правильную структуру папок
           mkdir -p $ANDROID_HOME/cmdline-tools/latest
           mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
           rm -rf cmdline-tools commandlinetools-linux-*.zip
 
-          # Добавляем в PATH и экспортируем
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          # Определяем переменную с полным путём к sdkmanager
+          SDKMANAGER=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+
+          # Проверяем, что файл действительно существует
+          if [ ! -f "$SDKMANAGER" ]; then
+            echo "❌ sdkmanager not found at $SDKMANAGER"
+            exit 1
+          fi
+          echo "✅ sdkmanager found at $SDKMANAGER"
+
+          # Принимаем лицензии, используя полный путь
+          yes | $SDKMANAGER --licenses > /dev/null 2>&1
+
+          # Устанавливаем компоненты, используя полный путь
+          $SDKMANAGER "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null
+
+          # Добавляем platform-tools в PATH (полезно для Gradle)
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-
-          # Обновляем PATH для текущего шага
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-
-          # Проверяем, что sdkmanager доступен
-          which sdkmanager || echo "sdkmanager not found"
-
-          # Принимаем лицензии
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-
-          # Устанавливаем необходимые компоненты
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null || true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
