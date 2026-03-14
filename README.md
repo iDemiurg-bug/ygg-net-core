@@ -17,14 +17,14 @@
 
 ### Локальная сборка
 
-\`\`\`bash
+
 # Клонируем репозиторий
 git clone https://github.com/username/ygg-net-core.git
 cd ygg-net-core
 
 # Собираем core модуль
 ./gradlew core:assembleRelease
-\`\`\`
+
 
 Готовый AAR будет в `core/build/outputs/aar/core-release.aar`
 
@@ -39,13 +39,12 @@ cd ygg-net-core
 
 В файле `buildozer.spec` вашего Kivy проекта укажите оба AAR:
 
-\`\`\`ini
+
 android.add_src = /path/to/core-release.aar,/path/to/yggdrasil.aar
-\`\`\`
+
 
 ### 2. Python код
 
-\`\`\`python
 from jnius import autoclass
 
 # Загружаем Java классы
@@ -87,38 +86,36 @@ if tun.startTun():
     # tun.stopTun()
 else:
     print("Ошибка запуска TUN")
-\`\`\`
+
 
 ### 3. Проверка статуса
 
-\`\`\`python
 # Проверка работает ли TUN
 if tun.isRunning():
     print("TUN активен")
     print(f"IP: {tun.getAddress()}")
 else:
     print("TUN остановлен")
-\`\`\`
+
 
 ### 4. Управление пирами динамически
 
-\`\`\`python
 # Добавить пир (работает без перезапуска)
 tun.addPeer("tcp://94.130.110.70:49979")
 
 # Удалить пир
 tun.removePeer("tcp://94.130.110.70:49979")
-\`\`\`
+
 
 ### 5. Генерация новой конфигурации
 
-\`\`\`python
+
 # Сгенерировать новый конфиг с ключами
 new_config = tun.generateConfig()
 if new_config:
     tun.saveConfig(new_config)
     print("Новый конфиг создан и сохранён")
-\`\`\`
+
 
 ## Структура проекта
 ygg-net-core/
