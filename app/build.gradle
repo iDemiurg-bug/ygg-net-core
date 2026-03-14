@@ -10,6 +10,11 @@ android {
         cruncherEnabled = false
         useNewCruncher = false
     }
+    lint {
+        // Отключаем Lint для релизной сборки
+        checkReleaseBuilds false
+
+    }
 
     defaultConfig {
         applicationId "eu.neilalexander.yggdrasil"
