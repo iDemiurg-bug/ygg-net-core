@@ -27,37 +27,44 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          # Устанавливаем SDK Manager вручную и используем полный путь
+          # Используем существующий ANDROID_HOME
           export ANDROID_HOME=/usr/local/lib/android/sdk
           echo "ANDROID_HOME=$ANDROID_HOME"
 
-          # Скачиваем command line tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-*.zip
+          # Проверяем, где находятся cmdline-tools
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            echo "✅ Found cmdline-tools at $ANDROID_HOME/cmdline-tools/latest"
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          elif [ -d "$ANDROID_HOME/cmdline-tools/bin" ]; then
+            echo "✅ Found cmdline-tools at $ANDROID_HOME/cmdline-tools"
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
+          else
+            echo "❌ cmdline-tools not found. Installing..."
+            # Скачиваем и устанавливаем только если нет
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q commandlinetools-linux-*.zip
+            mkdir -p $ANDROID_HOME/cmdline-tools/latest
+            mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
+            rm -rf cmdline-tools commandlinetools-linux-*.zip
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
 
-          # Создаём правильную структуру папок
-          mkdir -p $ANDROID_HOME/cmdline-tools/latest
-          mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
-          rm -rf cmdline-tools commandlinetools-linux-*.zip
-
-          # Определяем переменную с полным путём к sdkmanager
-          SDKMANAGER=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-
-          # Проверяем, что файл действительно существует
+          # Проверяем, что sdkmanager доступен
           if [ ! -f "$SDKMANAGER" ]; then
             echo "❌ sdkmanager not found at $SDKMANAGER"
             exit 1
           fi
           echo "✅ sdkmanager found at $SDKMANAGER"
 
-          # Принимаем лицензии, используя полный путь
-          yes | $SDKMANAGER --licenses > /dev/null 2>&1
-
-          # Устанавливаем компоненты, используя полный путь
-          $SDKMANAGER "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null
-
-          # Добавляем platform-tools в PATH (полезно для Gradle)
+          # Добавляем пути в PATH для следующих шагов
+          echo "$(dirname $SDKMANAGER)" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+          # Принимаем лицензии
+          yes | $SDKMANAGER --licenses > /dev/null 2>&1 || true
+
+          # Устанавливаем недостающие компоненты
+          $SDKMANAGER "platform-tools" "platforms;android-33" "build-tools;33.0.1" "ndk;23.2.8568313" > /dev/null || true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
