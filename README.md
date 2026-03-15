@@ -117,28 +117,7 @@ if new_config:
     print("Новый конфиг создан и сохранён")
 
 
-## Структура проекта
-ygg-net-core/
-├── .github/
-│ └── workflows/
-│ └── build.yml # GitHub Actions
-├── core/
-│ ├── build.gradle
-│ └── src/main/
-│ ├── AndroidManifest.xml
-│ ├── java/io/github/idemiurg/yggdroid/
-│ │ └── YggdroidTun.java # Единый класс
-│ └── res/values/
-│ └── strings.xml
-├── libs/
-│ └── README.md # Инструкция для AAR
-├── .gitignore
-├── build.gradle
-├── settings.gradle
-├── gradle.properties
-├── gradlew
-├── gradlew.bat
-└── README.md
+
 ## Версии
 
 - **core-release.aar**: версия 1.0.0
