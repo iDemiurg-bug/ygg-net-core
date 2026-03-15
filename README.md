@@ -57,6 +57,7 @@ context = PythonActivity.mActivity
 
 # Создаём экземпляры
 ygg = Yggdrasil()  # Экземпляр ядра
+
 tun = YggdroidTun.getInstance(context)
 
 # Связываем их (обязательно до запуска!)
